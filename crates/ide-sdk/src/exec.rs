@@ -77,6 +77,15 @@ pub(crate) fn query_in_cancellable(
     query_command_cancellable(&mut cmd, timeout, Some(cancel))
 }
 
+fn command_line(cmd: &Command) -> String {
+    let mut line = cmd.get_current_dir().map(|dir| format!("cd {dir:?} && ")).unwrap_or_default();
+    line.push_str(&format!("{:?}", cmd.get_program()));
+    for arg in cmd.get_args() {
+        line.push_str(&format!(" {arg:?}"));
+    }
+    line
+}
+
 fn query_command_cancellable(
     cmd: &mut Command,
     timeout: Duration,
@@ -95,7 +104,7 @@ fn query_command_cancellable(
         .spawn()
         .inspect_err(|error| {
             if cancel.is_some() {
-                tracing::warn!(?cmd, %error, "cannot query external libraries");
+                tracing::warn!(cmd = %command_line(cmd), %error, "cannot query external libraries");
             }
         })
         .ok()?;
@@ -137,7 +146,7 @@ fn query_command_cancellable(
                 let _ = child.kill();
                 let _ = child.wait();
                 if cancel.is_some() {
-                    tracing::warn!(?cmd, "external libraries query timed out or could not be polled");
+                    tracing::warn!(cmd = %command_line(cmd), "external libraries query timed out or could not be polled");
                 }
                 return None;
             }
@@ -169,7 +178,7 @@ fn query_command_cancellable(
     }
     if !status.success() {
         if cancel.is_some() {
-            tracing::warn!(?cmd, %status, stderr = %decode_tool_output(&err), "external libraries query failed");
+            tracing::warn!(cmd = %command_line(cmd), %status, stderr = %decode_tool_output(&err), "external libraries query failed");
         }
         return None;
     }
@@ -259,4 +268,18 @@ pub(crate) fn stream(
         ));
     }
     Ok(collected)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn leaves_the_environment_out() {
+        let mut cmd = Command::new("gradle");
+        cmd.args(["-q", "dependencies"]).current_dir("/work").env("NPM_TOKEN", "secret-value");
+        let line = command_line(&cmd);
+        assert_eq!(line, r#"cd "/work" && "gradle" "-q" "dependencies""#);
+        assert!(!line.contains("secret-value"));
+    }
 }
