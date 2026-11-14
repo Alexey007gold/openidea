@@ -71,6 +71,23 @@ pub unsafe fn set_style_mask_async(
     set_style_mask(&ns_window, &ns_view, mask);
   });
 }
+pub unsafe fn restore_style_mask_async(
+  ns_window: &NSWindow,
+  ns_view: &NSView,
+  mask: NSWindowStyleMask,
+) {
+  let ns_window = MainThreadSafe(ns_window.retain());
+  let ns_view = MainThreadSafe(ns_view.retain());
+  DispatchQueue::main().exec_async(move || {
+    let attached = ns_view
+      .window()
+      .is_some_and(|window| std::ptr::eq(&*window, &**ns_window));
+    if attached && !ns_window.styleMask().contains(NSWindowStyleMask::FullScreen) {
+      set_style_mask(&ns_window, &ns_view, mask);
+    }
+  });
+}
+
 pub unsafe fn set_style_mask_sync(ns_window: &NSWindow, ns_view: &NSView, mask: NSWindowStyleMask) {
   if is_main_thread() {
     set_style_mask(ns_window, ns_view, mask);

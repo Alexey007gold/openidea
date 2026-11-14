@@ -1025,7 +1025,7 @@ impl UnownedWindow {
     drop(shared_state_lock);
     trace!("Unlocked shared state in `restore_state_from_fullscreen`");
 
-    self.set_style_mask_async(mask);
+    unsafe { util::restore_style_mask_async(&self.ns_window, &self.ns_view, mask) };
     self.set_maximized(maximized);
   }
 
