@@ -1172,6 +1172,7 @@ export const commands = {
 	 *  disabled in place (no rebuild).
 	 */
 	menuSetDisabled: (ids: string[]) => __TAURI_INVOKE<void>("menu_set_disabled", { ids }),
+	touchBarSet: (buttons: TouchBarButton[]) => typedError<null, IdeError>(__TAURI_INVOKE("touch_bar_set", { buttons })),
 	appLogLocation: () => typedError<LogLocation, IdeError>(__TAURI_INVOKE("app_log_location")),
 	/**  Installs the `openidea` command for this user. */
 	appCliInstall: () => typedError<CliInstallation, IdeError>(__TAURI_INVOKE("app_cli_install")),
@@ -10221,6 +10222,16 @@ export type ToolStatus =
 "onPath" | 
 /**  The executable chosen in settings. */
 "custom" | "missing";
+
+export type TouchBarButton = {
+	action: string,
+	title: string,
+	icon: TouchBarIcon,
+	showTitle: boolean,
+	enabled: boolean,
+};
+
+export type TouchBarIcon = "previousDifference" | "nextDifference" | "previousFile" | "nextFile" | "stepOver" | "stepInto" | "stepOut" | "resume" | "stop";
 
 export type TransferError = {
 	path: string,

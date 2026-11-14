@@ -506,6 +506,7 @@ pub fn builder() -> tauri_specta::Builder<tauri::Wry> {
         window::menu_refresh,
         window::menu_model,
         window::menu_set_disabled,
+        window::touch_bar_set,
         window::app_log_location,
         window::app_cli_install,
         window::app_cli_uninstall,

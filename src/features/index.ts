@@ -35,7 +35,13 @@ import { activate as build } from "./build";
 import { activate as templates, activateSettingsPages as templatesPages } from "./templates";
 import { activate as todo, activateSettingsPages as todoPages } from "./todo";
 import { activate as settings, activateRuntimeSettings, activateSettingsWindow } from "./settings";
-import { activate as app, activateLocale as appLocale, activateMenuBridge, confirmLeave } from "./app";
+import {
+  activate as app,
+  activateLocale as appLocale,
+  activateMenuBridge,
+  activateTouchBar,
+  confirmLeave,
+} from "./app";
 import { activate as perf } from "./perf";
 import { activate as plugins, activateSettingsPages as pluginsPages } from "./plugins";
 import { activate as tools, activateSettingsPages as toolsPages } from "./tools";
@@ -138,6 +144,7 @@ export function activateComparisonWindowFeatures(parent: string): () => void {
     ["locale", appLocale],
     ["settings", activateRuntimeSettings],
     ["menu", activateMenuBridge],
+    ["touchBar", activateTouchBar],
     ["editor", editor],
     ["vcs", vcs],
     ["comparison", () => activateComparisonWindow(parent, (project) => confirmLeave(undefined, project))],
@@ -153,6 +160,7 @@ export function activateDiffWindowFeatures(parent: string): () => void {
     ["locale", appLocale],
     ["settings", activateRuntimeSettings],
     ["menu", activateMenuBridge],
+    ["touchBar", activateTouchBar],
     ["vcs", vcs],
     ["diff", () => activateDiffWindow(parent)],
   ]);

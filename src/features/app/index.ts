@@ -15,6 +15,7 @@ import { KeymapReferenceOverlay } from "./KeymapReference";
 import { LightEditStatus } from "./LightEditStatus";
 import { installLocaleSync, registerLocalizedActions } from "./locale";
 import { installMenuBridge } from "./menuBridge";
+import { installTouchBar } from "./touchBar";
 import { NewProjectOverlay } from "./NewProject";
 import { projectActions, registerPowerSaveBanner } from "./projectActions";
 import { installWindowTitle } from "./title";
@@ -26,6 +27,7 @@ import { installWindowGroups } from "@/platform/windowGroups";
 export const activateLocale = installLocaleSync;
 /** Native menu items of a secondary window that runs actions itself (comparison). */
 export const activateMenuBridge = installMenuBridge;
+export const activateTouchBar = installTouchBar;
 export { confirmLeave } from "./closeGuard";
 
 export function activate(): () => void {
@@ -49,6 +51,7 @@ export function activate(): () => void {
     registerPowerSaveBanner(),
     registerInvalidateCachesActions(),
     installMenuBridge(),
+    installTouchBar(),
     installWindowTitle(),
     installCloseGuard(),
     installLaunchHandling(),

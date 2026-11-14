@@ -31,6 +31,7 @@ mod state;
 mod theme_frame;
 #[cfg(target_os = "macos")]
 mod titlebar;
+mod touch_bar;
 mod updates;
 mod window_groups;
 #[cfg(any(windows, test))]
@@ -263,6 +264,7 @@ pub fn run() {
             {
                 page_swipe::forget(window.label());
                 titlebar::forget(window);
+                touch_bar::forget(window.label());
             }
             if windows::auxiliary_parent(window.label()).is_none() {
                 window_groups::destroyed(window.app_handle(), window.label());

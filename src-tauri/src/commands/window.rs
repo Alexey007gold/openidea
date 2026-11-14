@@ -343,6 +343,16 @@ pub fn menu_set_disabled(app: AppHandle, menu_state: State<'_, MenuState>, ids: 
     }
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn touch_bar_set(window: WebviewWindow, buttons: Vec<crate::touch_bar::TouchBarButton>) -> IdeResult<()> {
+    #[cfg(target_os = "macos")]
+    crate::touch_bar::set(&window, buttons).map_err(|e| IdeError::internal(e.to_string()))?;
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, buttons);
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LogLocation {
