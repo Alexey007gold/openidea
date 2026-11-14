@@ -8,6 +8,7 @@
   "ignorePatterns": [
     "dist",
     "target",
+    "vendor",
     "src/bindings.ts",
     "evals/*/golden",
     "src/editor/core/cm/angular/parser*.ts",

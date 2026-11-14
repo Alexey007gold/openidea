@@ -2,7 +2,7 @@
 resolver = "3"
 members = ["crates/*", "src-tauri"]
 # Plugins and the guest SDK build for wasm32-wasip2 in their own workspaces.
-exclude = ["sdk", "plugins"]
+exclude = ["sdk", "plugins", "vendor"]
 
 [workspace.package]
 version = "0.1.44"
@@ -148,3 +148,6 @@ opt-level = 3
 panic = "unwind"
 # Keep the symbol table: crash reports and logged backtraces name functions.
 strip = "debuginfo"
+
+[patch.crates-io]
+tao = { path = "vendor/tao" }
