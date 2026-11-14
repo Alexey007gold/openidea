@@ -419,6 +419,10 @@ static WINDOW_CLASS: LazyLock<WindowClass> = LazyLock::new(|| unsafe {
     is_focusable as extern "C" fn(_, _) -> _,
   );
   decl.add_method(sel!(sendEvent:), send_event as extern "C" fn(_, _, _));
+  decl.add_method(
+    sel!(doCommandBySelector:),
+    do_command_by_selector as extern "C" fn(_, _, _),
+  );
   // progress bar states, follows ProgressState
   decl.add_ivar::<Bool>(CStr::from_bytes_with_nul(b"focusable\0").unwrap());
   WindowClass(decl.register())
@@ -444,6 +448,18 @@ extern "C" fn send_event(this: &Object, _sel: Sel, event: &NSEvent) {
     }
     let superclass = util::superclass(this);
     let _: () = msg_send![super(this, superclass), sendEvent: event];
+  }
+}
+
+extern "C" fn do_command_by_selector(this: &Object, _sel: Sel, selector: Sel) {
+  unsafe {
+    let is_cancel = selector == sel!(cancelOperation:) || selector == sel!(cancel:);
+    let style_mask: NSWindowStyleMask = msg_send![this, styleMask];
+    if is_cancel && style_mask.contains(NSWindowStyleMask::FullScreen) {
+      return;
+    }
+    let superclass = util::superclass(this);
+    let _: () = msg_send![super(this, superclass), doCommandBySelector: selector];
   }
 }
 
