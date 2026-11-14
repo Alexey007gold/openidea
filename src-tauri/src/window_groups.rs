@@ -188,6 +188,18 @@ pub fn destroyed(app: &AppHandle, caller: &str) {
     }
 }
 
+pub fn close_tab(app: &AppHandle, caller: &str, label: &str) -> IdeResult<()> {
+    let grouped =
+        app.state::<WindowsState>().groups.lock().group(caller).is_some_and(|g| g.members.iter().any(|m| m == label));
+    if !grouped {
+        return Err(IdeError::invalid("The window is not in this group"));
+    }
+    app.get_webview_window(label)
+        .ok_or_else(|| IdeError::not_found("Window closed"))?
+        .close()
+        .map_err(|e| IdeError::internal(e.to_string()))
+}
+
 /// Tabs left to close; the first one is closing now.
 pub struct TabCloses {
     keep: String,
@@ -235,11 +247,8 @@ fn close_next(app: &AppHandle) {
         };
         match next {
             Ok(label) => {
-                if let Some(window) = app.get_webview_window(&label) {
-                    windows::focus(&window);
-                    if window.close().is_ok() {
-                        return;
-                    }
+                if app.get_webview_window(&label).is_some_and(|window| window.close().is_ok()) {
+                    return;
                 }
                 if let Some(b) = state.tab_closes.lock().as_mut() {
                     b.pending.pop_front();

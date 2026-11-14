@@ -1,5 +1,5 @@
 use crate::{window_groups as groups, windows::WindowsState};
-use ide_core::{IdeError, IdeResult};
+use ide_core::IdeResult;
 use tauri::{Manager, WebviewWindow};
 
 #[tauri::command]
@@ -32,13 +32,7 @@ pub async fn window_group_detach(window: WebviewWindow) -> IdeResult<()> {
 #[tauri::command]
 #[specta::specta]
 pub fn window_group_close(window: WebviewWindow, label: String) -> IdeResult<()> {
-    groups::select(window.app_handle(), window.label(), &label)?;
-    window
-        .app_handle()
-        .get_webview_window(&label)
-        .ok_or_else(|| IdeError::not_found("Window closed"))?
-        .close()
-        .map_err(|e| IdeError::internal(e.to_string()))
+    groups::close_tab(window.app_handle(), window.label(), &label)
 }
 
 /// Closes several project tabs one by one (each asks about its own unsaved changes), then selects `keep`.

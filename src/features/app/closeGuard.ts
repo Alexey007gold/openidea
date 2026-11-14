@@ -197,6 +197,27 @@ async function processNames(deps: CloseDeps): Promise<string[]> {
   return [...new Set(await deps.runningProcesses().catch(() => []))].filter(Boolean);
 }
 
+async function showThisWindow(): Promise<void> {
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  const window = getCurrentWindow();
+  const selected = await commands.windowGroupSelect(window.label);
+  if (selected.status === "ok") return;
+  await window.unminimize();
+  await window.show();
+  await window.setFocus();
+}
+
+export function shownWhenAsking(deps: CloseDeps, show: () => Promise<void> = showThisWindow): CloseDeps {
+  let shown: Promise<void> | undefined;
+  return {
+    ...deps,
+    ask: async (...args) => {
+      await (shown ??= show().catch(() => {}));
+      return deps.ask(...args);
+    },
+  };
+}
+
 let closing = false;
 
 /** Drops saved tabs when that setting is on. The result says whether a cancelled close should put them back. */
@@ -249,7 +270,7 @@ async function onCloseRequested(deps: CloseDeps): Promise<boolean> {
         dirty: dirtyCount(),
         project: s.project?.displayName || s.project?.name || null,
       },
-      deps,
+      shownWhenAsking(deps),
     );
     if (!ok) {
       await (ctx.quitting ? commands.appCancelQuit() : commands.windowGroupCancelClose());

@@ -560,7 +560,6 @@ pub fn continue_quit(app: &AppHandle, closed: Option<&str>) {
         .filter(|label| Some(label.as_str()) != closed)
         .find_map(|label| app.get_webview_window(&label));
     if let Some(window) = next {
-        focus(&window);
         if window.close().is_err() {
             app.state::<WindowsState>().set_quitting(false);
         }

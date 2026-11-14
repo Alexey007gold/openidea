@@ -5,6 +5,7 @@ import {
   confirmExitEnabled,
   decideClose,
   returnsToWelcome,
+  shownWhenAsking,
   type CloseDeps,
   type CloseInput,
 } from "../closeGuard";
@@ -280,4 +281,41 @@ it("confirmLeave asks about running processes before closing", async () => {
   await expect(confirmLeave(d, "openidea")).resolves.toBe(false);
   expect(asked[0]?.title).toContain("app");
   expect(asked[0]?.body).toContain("app");
+});
+
+describe("shownWhenAsking", () => {
+  it("leaves a closing window where it is when nothing needs asking", async () => {
+    const { d } = deps([]);
+    const show = vi.fn(async () => {});
+    expect(await decideClose(base, shownWhenAsking(d, show))).toBe(true);
+    expect(show).not.toHaveBeenCalled();
+  });
+
+  it("shows the window once, before its first prompt", async () => {
+    const { d } = deps([
+      { button: "terminate", checked: false },
+      { button: "save", checked: false },
+    ]);
+    const order: string[] = [];
+    const show = vi.fn(async () => {
+      order.push("show");
+    });
+    const ask = d.ask;
+    d.ask = vi.fn(async (r: PromptRequest) => {
+      order.push("ask");
+      return ask(r);
+    });
+    const input = { ...base, windows: 2, confirmTerminate: true, processes: ["app"], dirty: 1 };
+    expect(await decideClose(input, shownWhenAsking(d, show))).toBe(true);
+    expect(order).toEqual(["show", "ask", "ask"]);
+  });
+
+  it("still asks when the window cannot be shown", async () => {
+    const { d, asked } = deps([{ button: "save", checked: false }]);
+    const show = vi.fn(async () => {
+      throw new Error("closed");
+    });
+    expect(await decideClose({ ...base, windows: 2, dirty: 1 }, shownWhenAsking(d, show))).toBe(true);
+    expect(asked).toHaveLength(1);
+  });
 });
