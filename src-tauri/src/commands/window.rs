@@ -225,6 +225,9 @@ pub fn window_open_projects(
 #[tauri::command]
 #[specta::specta]
 pub fn window_is_fullscreen(window: WebviewWindow) -> bool {
+    #[cfg(target_os = "macos")]
+    return crate::macos::is_full_screen(&window);
+    #[cfg(not(target_os = "macos"))]
     window.is_fullscreen().unwrap_or(false)
 }
 

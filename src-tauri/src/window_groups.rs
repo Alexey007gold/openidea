@@ -65,8 +65,14 @@ pub fn frame_changed(app: &AppHandle, label: &str) {
 /// fullscreen Space as a whole.
 pub fn toggle_fullscreen(window: &WebviewWindow) -> IdeResult<bool> {
     let err = |e: tauri::Error| IdeError::internal(e.to_string());
-    let on = !window.is_fullscreen().map_err(err)?;
-    window.set_fullscreen(on).map_err(err)?;
+    #[cfg(target_os = "macos")]
+    let on = crate::macos::toggle_full_screen(window).map_err(err)?;
+    #[cfg(not(target_os = "macos"))]
+    let on = {
+        let on = !window.is_fullscreen().map_err(err)?;
+        window.set_fullscreen(on).map_err(err)?;
+        on
+    };
     Ok(on)
 }
 
@@ -112,7 +118,7 @@ pub fn join(app: &AppHandle, anchor: &str, new_window: &str) -> IdeResult<()> {
     select(app, anchor, new_window)
 }
 
-pub fn merge(app: &AppHandle, caller: &str) -> IdeResult<()> {
+fn mergeable(app: &AppHandle, caller: &str) -> IdeResult<Vec<String>> {
     let members = windows::project_window_labels(app)
         .into_iter()
         .filter(|label| app.state::<AppState>().project(label).is_ok_and(|p| !p.light))
@@ -120,6 +126,29 @@ pub fn merge(app: &AppHandle, caller: &str) -> IdeResult<()> {
     if members.len() < 2 || !members.iter().any(|label| label == caller) {
         return Err(IdeError::invalid("Open at least two project windows to create a window group"));
     }
+    Ok(members)
+}
+
+#[cfg(target_os = "macos")]
+pub fn merge(app: &AppHandle, caller: &str) -> IdeResult<()> {
+    let labels = mergeable(app, caller)?;
+    let window = app.get_webview_window(caller).ok_or_else(|| IdeError::not_found("Window closed"))?;
+    let members = labels.iter().filter_map(|label| app.get_webview_window(label)).collect();
+    let others = app.webview_windows().into_values().filter(|w| !labels.iter().any(|l| l == w.label())).collect();
+    let merged =
+        crate::macos::merge_all_windows(&window, members, others).map_err(|e| IdeError::internal(e.to_string()))?;
+    if merged.len() < 2 {
+        return Err(IdeError::invalid("Open at least two project windows to create a window group"));
+    }
+    app.state::<WindowsState>().groups.lock().merge(merged, caller)?;
+    changed(app);
+    app.state::<AppState>().sink.emit(IdeEvent::WindowFullscreenChanged);
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn merge(app: &AppHandle, caller: &str) -> IdeResult<()> {
+    let members = mergeable(app, caller)?;
     // Native fullscreen puts each window in a separate Space; leave it before grouping.
     for label in &members {
         if let Some(window) = app.get_webview_window(label) {
@@ -140,8 +169,11 @@ pub fn detach(app: &AppHandle, caller: &str) -> IdeResult<()> {
     let window = app.get_webview_window(caller);
     // A tab moved out of a fullscreen group stays fullscreen in a Space of its own.
     #[cfg(target_os = "macos")]
-    if let Some(window) = &window {
-        crate::macos::move_tab_to_new_window(window).map_err(err)?;
+    if let Some(window) = &window
+        && crate::macos::move_tab_to_new_window(window).map_err(err)?
+    {
+        changed(app);
+        return Ok(());
     }
     if let Some(next) = app.get_webview_window(&next) {
         #[cfg(target_os = "macos")]

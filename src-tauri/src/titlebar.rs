@@ -96,13 +96,14 @@ fn track(window: &NSWindow, app: &tauri::AppHandle) -> Tracked {
     if window.styleMask().contains(NSWindowStyleMask::FullScreen) {
         state.will_enter();
     }
-    let observe = |name, change: fn(&Fullscreen)| {
+    let observe = |name, change: fn(&Fullscreen, Option<&NSWindow>)| {
         let weak = Weak::new(window);
         let state = state.clone();
         let app = app.clone();
         let block = block2::RcBlock::new(move |_| {
-            change(&state);
-            if let Some(window) = weak.load() {
+            let window = weak.load();
+            change(&state, window.as_deref());
+            if let Some(window) = window {
                 apply(&window, &state);
                 crate::macos::hide_tab_bar(&window);
             }
@@ -126,11 +127,15 @@ fn track(window: &NSWindow, app: &tauri::AppHandle) -> Tracked {
     };
     let observers = unsafe {
         [
-            observe(NSWindowWillEnterFullScreenNotification, Fullscreen::will_enter),
-            observe(NSWindowDidEnterFullScreenNotification, Fullscreen::will_enter),
-            observe(NSWindowDidExitFullScreenNotification, Fullscreen::did_exit),
+            observe(NSWindowWillEnterFullScreenNotification, |state, _| state.will_enter()),
+            observe(NSWindowDidEnterFullScreenNotification, |state, _| state.will_enter()),
+            observe(NSWindowDidExitFullScreenNotification, |state, _| state.did_exit()),
             // A tab shown in its group: AppKit's tab bar moves to it, and it may be in full screen.
-            observe(NSWindowDidBecomeKeyNotification, |_| {}),
+            observe(NSWindowDidBecomeKeyNotification, |state, window| {
+                if window.is_some_and(|w| w.styleMask().contains(NSWindowStyleMask::FullScreen)) {
+                    state.will_enter();
+                }
+            }),
         ]
     };
     Tracked { state, _observers: observers }

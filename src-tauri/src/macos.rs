@@ -45,7 +45,7 @@ pub fn new_project_tab_target(app: &AppHandle, launch: &Launch) -> IdeResult<Opt
         let host = app.state::<crate::state::AppState>();
         host.project(w.label()).is_ok_and(|p| !p.light) || host.remote_dev.get(w.label()).is_some()
     });
-    let fullscreen = active.as_ref().is_some_and(|w| w.is_fullscreen().unwrap_or(false));
+    let fullscreen = active.as_ref().is_some_and(is_full_screen);
     let light_edit = launch.project.is_none() && launch.remote.is_none();
     Ok(should_group_new_project(tabbing_preference(app)?, fullscreen, active.is_some(), light_edit)
         .then_some(active)
@@ -115,14 +115,81 @@ pub fn sync_tab_group(
 }
 
 /// Takes `window` out of its tab group into a window of its own; in full screen, a Space of its own.
-pub fn move_tab_to_new_window(window: &WebviewWindow) -> tauri::Result<()> {
+pub fn move_tab_to_new_window(window: &WebviewWindow) -> tauri::Result<bool> {
     let target = window.clone();
     on_main(window, move || {
-        let Some(native) = native(&target) else { return };
-        if native.tabbedWindows().is_some_and(|tabs| tabs.count() > 1) {
+        let Some(native) = native(&target) else { return false };
+        let full_screen = in_full_screen(native);
+        let siblings = native.tabbedWindows();
+        if siblings.as_ref().is_some_and(|tabs| tabs.count() > 1) {
+            if let Some(group) = native.tabGroup() {
+                group.setSelectedWindow(Some(native));
+            }
             native.moveTabToNewWindow(None);
         }
         hide_tab_bar(native);
+        for sibling in siblings.iter().flat_map(|tabs| tabs.iter()) {
+            hide_tab_bar(&sibling);
+        }
+        full_screen
+    })
+}
+
+fn in_full_screen(window: &NSWindow) -> bool {
+    window.styleMask().contains(objc2_app_kit::NSWindowStyleMask::FullScreen)
+}
+
+pub fn is_full_screen(window: &WebviewWindow) -> bool {
+    let target = window.clone();
+    on_main(window, move || native(&target).is_some_and(in_full_screen)).unwrap_or(false)
+}
+
+pub fn toggle_full_screen(window: &WebviewWindow) -> tauri::Result<bool> {
+    let target = window.clone();
+    on_main(window, move || {
+        let Some(native) = native(&target) else { return false };
+        let on = !in_full_screen(native);
+        native.toggleFullScreen(None);
+        on
+    })
+}
+
+pub fn merge_all_windows(
+    caller: &WebviewWindow,
+    members: Vec<WebviewWindow>,
+    others: Vec<WebviewWindow>,
+) -> tauri::Result<Vec<String>> {
+    let target = caller.clone();
+    on_main(caller, move || {
+        let Some(own) = native(&target) else { return Vec::new() };
+        let Some(mtm) = MainThreadMarker::new() else { return Vec::new() };
+        let identifier = objc2_foundation::NSString::from_str("openidea.project");
+        for member in &members {
+            if let Some(window) = native(member) {
+                window.setTabbingIdentifier(&identifier);
+            }
+        }
+        let excluded = others.iter().filter_map(native).map(|w| (w, w.tabbingMode())).collect::<Vec<_>>();
+        for (window, _) in &excluded {
+            window.setTabbingMode(objc2_app_kit::NSWindowTabbingMode::Disallowed);
+        }
+        NSWindow::setAllowsAutomaticWindowTabbing(true, mtm);
+        own.mergeAllWindows(None);
+        NSWindow::setAllowsAutomaticWindowTabbing(false, mtm);
+        for (window, mode) in excluded {
+            window.setTabbingMode(mode);
+        }
+        for member in &members {
+            if let Some(window) = native(member) {
+                hide_tab_bar(window);
+            }
+        }
+        own.tabbedWindows()
+            .iter()
+            .flat_map(|tabs| tabs.iter())
+            .filter_map(|tab| members.iter().find(|m| native(m).is_some_and(|n| std::ptr::eq(n, &*tab))))
+            .map(|m| m.label().to_owned())
+            .collect()
     })
 }
 
